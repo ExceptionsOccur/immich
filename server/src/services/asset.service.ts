@@ -36,17 +36,14 @@ export class AssetService extends BaseService {
       timelineEnabled: true,
     });
     const userIds = [auth.user.id, ...partnerIds];
-
-    const groups = await this.assetRepository.getByDayOfYear(userIds, dto);
-    return groups.map(({ year, assets }) => {
-      const yearsAgo = DateTime.utc().year - year;
-      return {
-        yearsAgo,
-        // TODO move this to clients
-        title: `${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago`,
-        assets: assets.map((asset) => mapAsset(asset as AssetEntity, { auth })),
-      };
-    });
+    const sharedAlbumIds = (await this.albumRepository.getShared(auth.user.id)).map(({ id }) => id);
+    const groups = await this.assetRepository.getByDayOfYear(userIds, sharedAlbumIds, dto);
+    return groups.map(({ yearsAgo, assets }) => ({
+      yearsAgo,
+      // TODO move this to clients
+      title: `${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago`,
+      assets: assets.map((asset) => mapAsset(asset, { auth })),
+    }));
   }
 
   async getStatistics(auth: AuthDto, dto: AssetStatsDto) {

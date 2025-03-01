@@ -192,7 +192,7 @@ export class AssetRepository {
   }
 
   @GenerateSql({ params: [DummyValue.UUID, { day: 1, month: 1 }] })
-  getByDayOfYear(ownerIds: string[], { day, month }: MonthDay) {
+  getByDayOfYear(ownerIds: string[], albumIds: string[], { day, month }: MonthDay): Promise<DayOfYearAssets[]> {
     return this.db
       .with('res', (qb) =>
         qb
@@ -208,6 +208,12 @@ export class AssetRepository {
               )
               .select((eb) => eb.fn('make_date', [sql`year::int`, sql`${month}::int`, sql`${day}::int`]).as('date')),
           )
+          .with('album_assets', (qb) =>
+            qb
+              .selectFrom('albums_assets_assets')
+              .selectAll()
+              .where('albums_assets_assets.albumsId', '=', anyUuid(albumIds)),
+          )
           .selectFrom('today')
           .innerJoinLateral(
             (qb) =>
@@ -217,7 +223,13 @@ export class AssetRepository {
                 .innerJoin('asset_job_status', 'assets.id', 'asset_job_status.assetId')
                 .where('asset_job_status.previewAt', 'is not', null)
                 .where(sql`(assets."localDateTime" at time zone 'UTC')::date`, '=', sql`today.date`)
-                .where('assets.ownerId', '=', anyUuid(ownerIds))
+                .where((eb) =>
+                  eb.or([
+                    eb('assets.ownerId', '=', anyUuid(ownerIds)),
+                    eb('assets.id', 'in', (eb) => eb.selectFrom('album_assets').select('assetId')),
+                  ]),
+                )
+                // .where('assets.ownerId', '=', anyUuid(ownerIds))
                 .where('assets.isVisible', '=', true)
                 .where('assets.isArchived', '=', false)
                 .where((eb) =>

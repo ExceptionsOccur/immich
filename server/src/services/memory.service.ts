@@ -43,10 +43,10 @@ export class MemoryService extends BaseService {
       const hideAt = target.endOf('day').toISO();
 
       for (const [userId, userIds] of Object.entries(userMap)) {
-        const memories = await this.assetRepository.getByDayOfYear(userIds, target);
-
-        for (const { year, assets } of memories) {
-          const data: OnThisDayData = { year };
+        const sharedAlbumIds = (await this.albumRepository.getShared(userId)).map(({ id }) => id);
+        const memories = await this.assetRepository.getByDayOfYear(userIds, sharedAlbumIds, target);
+        for (const memory of memories) {
+          const data: OnThisDayData = { year: target.year - memory.yearsAgo };
           await this.memoryRepository.create(
             {
               ownerId: userId,
