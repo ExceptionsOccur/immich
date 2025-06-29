@@ -199,8 +199,8 @@ export class AssetRepository {
     return this.db.insertInto('assets').values(assets).returningAll().execute();
   }
 
-  @GenerateSql({ params: [DummyValue.UUID, { day: 1, month: 1 }] })
-  getByDayOfYear(ownerIds: string[], { day, month }: MonthDay) {
+  @GenerateSql({ params: [DummyValue.UUID, DummyValue.UUID, { day: 1, month: 1 }] })
+  getByDayOfYear(ownerIds: string[], albumIds: string[], { day, month }: MonthDay) {
     return this.db
       .with('res', (qb) =>
         qb
@@ -221,11 +221,24 @@ export class AssetRepository {
             (qb) =>
               qb
                 .selectFrom('assets')
+                .distinctOn(['assets.id'])
                 .selectAll('assets')
                 .innerJoin('asset_job_status', 'assets.id', 'asset_job_status.assetId')
                 .where('asset_job_status.previewAt', 'is not', null)
                 .where(sql`(assets."localDateTime" at time zone 'UTC')::date`, '=', sql`today.date`)
-                .where('assets.ownerId', '=', anyUuid(ownerIds))
+                .where((eb) =>
+                  eb('assets.ownerId', '=', anyUuid(ownerIds)).or(
+                    eb.and([
+                      eb.exists(
+                        eb
+                          .selectFrom('albums_assets_assets')
+                          .whereRef('albums_assets_assets.assetsId', '=', 'assets.id')
+                          .where('albums_assets_assets.albumsId', '=', anyUuid(albumIds)),
+                      ),
+                      eb.not(eb('assets.ownerId', '=', anyUuid(ownerIds))),
+                    ]),
+                  ),
+                )
                 .where('assets.visibility', '=', AssetVisibility.TIMELINE)
                 .where((eb) =>
                   eb.exists((qb) =>
@@ -236,6 +249,7 @@ export class AssetRepository {
                   ),
                 )
                 .where('assets.deletedAt', 'is', null)
+                .orderBy('assets.id')
                 .orderBy(sql`(assets."localDateTime" at time zone 'UTC')::date`, 'desc')
                 .limit(20)
                 .as('a'),
