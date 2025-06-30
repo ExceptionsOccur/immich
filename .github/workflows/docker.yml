@@ -172,7 +172,7 @@ jobs:
     name: Build Server
     needs: pre-job
     if: ${{ needs.pre-job.outputs.should_run_server == 'true' }}
-    uses: ExceptionsOccur/immich-devtools/.github/workflows/multi-runner-build.yml@7fe05ff97db9e2aac4bf21c65491a1969cae64b3 # convert repository_owner to lowercase
+    uses: ExceptionsOccur/immich-devtools/.github/workflows/multi-runner-build.yml@b01d1ffaa0513334d9eab757eb6ce3d2f576d351 # convert repository_owner to lowercase
     permissions:
       contents: read
       actions: read
