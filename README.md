@@ -1,3 +1,11 @@
+自用版本修改内容：
+
+- [server] 往年今日包含共享相册资产
+- [server] 往年今日返回结果取消 `20` 个限制
+- [mobile, web] 往年今日增加来自共享相册的提示，当资产来自共享相册，隐藏跳转图标
+
+---
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>
@@ -39,11 +47,8 @@
   <a href="readme_i18n/README_th_TH.md">ภาษาไทย</a>
 </p>
 
-
 > [!WARNING]
 > ⚠️ Always follow [3-2-1](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) backup plan for your precious photos and videos!
-> 
- 
 
 > [!NOTE]
 > You can find the main documentation, including installation guides, at https://immich.app/.
