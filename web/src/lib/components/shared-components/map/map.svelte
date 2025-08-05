@@ -53,6 +53,7 @@
     onOpenInMapView?: (() => Promise<void> | void) | undefined;
     onSelect?: (assetIds: string[]) => void;
     onClickPoint?: ({ lat, lng }: { lat: number; lng: number }) => void;
+    onZoom?: (map: maplibregl.Map) => void;
     popup?: import('svelte').Snippet<[{ marker: MapMarkerResponseDto }]>;
     rounded?: boolean;
     showSimpleControls?: boolean;
@@ -63,6 +64,7 @@
     mapMarkers = $bindable(),
     showSettings = true,
     zoom = undefined,
+    onZoom = undefined,
     center = $bindable(undefined),
     hash = false,
     simplified = false,
@@ -239,6 +241,11 @@
   });
 
   onMount(async () => {
+    if(map){
+      map.on('zoom', () => {
+          if (onZoom && map) onZoom(map);
+      })
+    }
     if (!mapMarkers) {
       mapMarkers = await loadMapMarkers();
     }

@@ -52,6 +52,7 @@ export enum AppRoute {
   UTILITIES = '/utilities',
   DUPLICATES = '/utilities/duplicates',
   LARGE_FILES = '/utilities/large-files',
+  GEOLOCATION_MANAGE = '/utilities/geolocation-manage',
 
   FOLDERS = '/folders',
   TAGS = '/tags',
