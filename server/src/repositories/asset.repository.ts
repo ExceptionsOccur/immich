@@ -309,7 +309,7 @@ export class AssetRepository {
                 .where('asset.deletedAt', 'is', null)
                 .orderBy('asset.id')
                 .orderBy(sql`(asset."localDateTime" at time zone 'UTC')::date`, 'desc')
-                .limit(20)
+                // .limit(20)
                 .as('a'),
             (join) => join.onTrue(),
           )
