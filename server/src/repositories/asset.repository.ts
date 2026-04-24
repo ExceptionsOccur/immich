@@ -157,7 +157,7 @@ const withBoundingBox = <T>(qb: SelectQueryBuilder<DB, 'asset' | 'asset_exif', T
 
 @Injectable()
 export class AssetRepository {
-  constructor(@InjectKysely() private db: Kysely<DB>) {}
+  constructor(@InjectKysely() private db: Kysely<DB>) { }
 
   @GenerateSql({
     params: [
@@ -373,68 +373,71 @@ export class AssetRepository {
     return ids.map(({ id }) => id);
   }
 
-  @GenerateSql({ params: [DummyValue.UUID, DummyValue.UUID, { year: 2000, day: 1, month: 1 }] })
-  getByDayOfYear(ownerIds: string[], albumIds: string[], { year, day, month }: YearMonthDay) {
+  @GenerateSql({ params: [DummyValue.UUID, { year: 2000, day: 1, month: 1 }] })
+  getByDayOfYear(ownerIds: string[], { year, day, month }: YearMonthDay) {
     return this.db
-      .with('res', (qb) =>
+      .with('eligible_assets', (qb) =>
         qb
-          .with('today', (qb) =>
-            qb
-              .selectFrom((eb) =>
+          .selectFrom('asset')
+          .distinctOn(['asset.id'])
+          .orderBy('asset.id', 'asc')             // 确定的排序，保证 distinctOn 可预测
+          .orderBy('asset.localDateTime', 'desc')
+          .selectAll('asset')
+          .select(
+            sql<Date>`(asset."localDateTime" AT TIME ZONE 'UTC')::date`.as('photo_date')
+          )
+          .where((eb) =>
+            eb.exists(
+              eb
+                .selectFrom('asset_file as af')
+                .whereRef('af.assetId', '=', 'asset.id')
+                .where('af.type', '=', AssetFileType.Preview)
+            )
+          )
+          .where('asset.deletedAt', 'is', null)
+          .where('asset.visibility', '=', AssetVisibility.Timeline)
+          .where((eb) =>
+            eb.or([
+              eb('asset.ownerId', '=', anyUuid(ownerIds)),
+              eb.exists(
                 eb
-                  .fn('generate_series', [
-                    sql`(select date_part('year', min(("localDateTime" at time zone 'UTC')::date))::int from asset)`,
-                    sql`${year - 1}`,
-                  ])
-                  .as('year'),
+                  .selectFrom('album_asset')
+                  .innerJoin('album', 'album.id', 'album_asset.albumId')
+                  .leftJoin(
+                    'album_user',
+                    (join) =>
+                      join
+                        .onRef('album_user.albumId', '=', 'album.id')
+                        .on('album_user.userId', '=', anyUuid(ownerIds))
+                  )
+                  .whereRef('album_asset.assetId', '=', 'asset.id')
+                  .where('album_user.userId', 'is not', null)
               )
-              .select((eb) => eb.fn('make_date', [sql`year::int`, sql`${month}::int`, sql`${day}::int`]).as('date')),
+            ])
           )
-          .selectFrom('today')
-          .innerJoinLateral(
-            (qb) =>
-              qb
-                .selectFrom('asset')
-                .distinctOn(['asset.id'])
-                .select(['asset.id', 'asset.localDateTime'])
-                .innerJoin('asset_job_status', 'asset.id', 'asset_job_status.assetId')
-                .where(sql`(asset."localDateTime" at time zone 'UTC')::date`, '=', sql`today.date`)
-                .where((eb) =>
-                  eb('asset.ownerId', '=', anyUuid(ownerIds)).or(
-                    eb.and([
-                      eb.exists(
-                        eb
-                          .selectFrom('album_asset')
-                          .whereRef('album_asset.assetsId', '=', 'asset.id')
-                          .where('album_asset.albumsId', '=', anyUuid(albumIds)),
-                      ),
-                      eb.not(eb('asset.ownerId', '=', anyUuid(ownerIds))),
-                    ]),
-                  ),
-                )
-                .where('asset.visibility', '=', AssetVisibility.Timeline)
-                .where((eb) =>
-                  eb.exists((qb) =>
-                    qb
-                      .selectFrom('asset_file')
-                      .whereRef('assetId', '=', 'asset.id')
-                      .where('asset_file.type', '=', AssetFileType.Preview),
-                  ),
-                )
-                .where('asset.deletedAt', 'is', null)
-                .orderBy('asset.id')
-                .orderBy(sql`(asset."localDateTime" at time zone 'UTC')::date`, 'desc')
-                // .limit(20)
-                .as('a'),
-            (join) => join.onTrue(),
+          .where(
+            (eb) =>
+              eb(sql`EXTRACT(MONTH FROM asset."localDateTime" AT TIME ZONE 'UTC')`, '=', month)
           )
-          .selectAll('a'),
+          .where(
+            (eb) =>
+              eb(sql`EXTRACT(DAY FROM asset."localDateTime" AT TIME ZONE 'UTC')`, '=', day)
+          )
+          .where(
+            (eb) =>
+              eb(sql`EXTRACT(YEAR FROM asset."localDateTime" AT TIME ZONE 'UTC')`, '<=', year - 1)
+          )
       )
-      .selectFrom('res')
-      .select(sql<number>`date_part('year', ("localDateTime" at time zone 'UTC')::date)::int`.as('year'))
-      .select((eb) => eb.fn.jsonAgg(eb.table('res')).as('assets'))
-      .groupBy(sql`("localDateTime" at time zone 'UTC')::date`)
-      .orderBy(sql`("localDateTime" at time zone 'UTC')::date`, 'desc')
+      .selectFrom('eligible_assets')
+      .select(sql<number>`EXTRACT(YEAR FROM photo_date)::int`.as('year'))
+      .select((eb) =>
+        eb.fn
+          .jsonAgg(sql`to_jsonb(eligible_assets.*)`)
+          .orderBy('eligible_assets.localDateTime', 'desc')
+          .as('assets')
+      )
+      .groupBy('photo_date')
+      .orderBy('photo_date', 'desc')
       .execute();
   }
 
