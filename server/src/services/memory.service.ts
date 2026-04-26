@@ -58,7 +58,7 @@ export class MemoryService extends BaseService {
             showAt,
             hideAt,
           },
-          new Set(assets.map(({ id }) => id)),
+          new Set((assets as Array<{ id: string }>).map(({ id }) => id)),
         ),
       ),
     );
