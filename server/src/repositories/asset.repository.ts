@@ -424,7 +424,12 @@ export class AssetRepository {
                         .on('album_user.userId', '=', anyUuid(ownerIds))
                   )
                   .whereRef('album_asset.assetId', '=', 'asset.id')
-                  .where('album_user.userId', 'is not', null)
+                  .where((eb2) => 
+                    eb2.or([
+                      eb2('album.ownerId', '=', anyUuid(ownerIds)),
+                      eb2('album_user.userId', 'is not', null)
+                    ])
+                  )
               )
             ])
           )
